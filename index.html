@@ -129,7 +129,7 @@ const SRC0='<!DOCTYPE html>\n'+document.documentElement.outerHTML;/* cópia do c
 /* ===== CONFIGURAÇÃO ===== */
 /* AVISO: a senha em JavaScript/localStorage NÃO é segurança real de servidor. Qualquer pessoa pode ler o código. Serve apenas para uso local/frontend. */
 const K={c:'bb_siteConfig',b:'bb_barbers',a:'bb_appointments'};
-const DEF={name:'BLACK BARBER',logo:'',title:'Seu estilo começa aqui.',sub:'Barbearia premium',desc:'Agende seu horário com seu barbeiro favorito de forma rápida e simples.',btn:'Agendar horário',about:'Uma barbearia de alto padrão, com atendimento exclusivo, ambiente sofisticado e profissionais apaixonados pelo que fazem.',phone:'(11) 99999-9999',addr:'Rua Exemplo, 123 - Centro',insta:'@blackbarber',info:'Seg a Sáb, das 09h às 18h',wa:'',map:'',heroImg:'',pass:'529529',theme:'dark',primary:'#ffffff',secondary:'#9a9a9a',accent:'#d0d0d0',btnc:'#ffffff',text:'#ffffff',op:.45,blur:22,font:'Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif'};
+const DEF={name:'BLACK BARBER',logo:'',title:'Seu estilo começa aqui.',sub:'Barbearia premium',desc:'Agende seu horário com seu barbeiro favorito de forma rápida e simples.',btn:'Agendar horário',about:'Uma barbearia de alto padrão, com atendimento exclusivo, ambiente sofisticado e profissionais apaixonados pelo que fazem.',phone:'(11) 99999-9999',addr:'Rua Exemplo, 123 - Centro',insta:'@blackbarber',info:'Seg a Sáb, das 09h às 18h',wa:'',map:'',heroImg:'',services:[],pass:'529529',theme:'dark',primary:'#ffffff',secondary:'#9a9a9a',accent:'#d0d0d0',btnc:'#ffffff',text:'#ffffff',op:.45,blur:22,font:'Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif'};
 const T=['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00'];
 const DEFB=()=>[{id:'b1',name:'Lucas',photo:'',desc:'Especialista em degradê e cortes modernos.',wa:'',days:[1,2,3,5],times:[...T],active:true},{id:'b2',name:'Rafael',photo:'',desc:'Barba, navalha e cortes clássicos.',wa:'',days:[2,4,6],times:['10:00','11:00','14:00','15:00','16:00'],active:true}];
 const DN=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
@@ -153,7 +153,7 @@ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{
 /* ===== SUPABASE (banco online) =====
    Preencha url e key (Project URL e anon public key). Se ficarem vazios, o site funciona só com localStorage.
    A senha do ADM e a gravação ficam protegidas no servidor (funções SQL do arquivo supabase.sql). */
-const SB={url:'https://yhidxiuhousyhjzspgxx.supabase.co',key:'sb_publishable_sh1C-JVxSvj8zF4jHSu94Q_3K6BRWyz'};
+const SB={url:'https://zsvttsytmnydrafxcvkl.supabase.co',key:'sb_publishable_ubnIHJGbDUSHh8ZGv8umDA_r9XLaPoH'};
 const ON=!!(SB.url&&SB.key);
 let busy=[],ADM='';
 if(ON){const c=ld('bb_cache',null);if(c){cfg=Object.assign({},DEF,c.cfg);barbers=c.barbers}cfg.pass=''}
@@ -162,7 +162,7 @@ async function refreshBusy(){if(ON)busy=(await rpc('get_taken',{p_from:today()})
 async function pull(){try{const d=await rpc('get_site');if(d&&d.cfg&&Object.keys(d.cfg).length){cfg=Object.assign({},DEF,d.cfg);cfg.pass='';if(Array.isArray(d.barbers))barbers=d.barbers;sv('bb_cache',{cfg,barbers})}await refreshBusy()}catch(e){}applyCfg();renderPublic()}
 async function doLogin(){const v=$('#pw').value;
 if(!ON){if(v===cfg.pass){closeM();openAdm()}else toast('Senha incorreta.');return}
-try{if(await rpc('admin_login',{p_pass:v})===true){ADM=v;closeM();openAdm()}else toast('Senha incorreta.')}catch(e){toast('Sem conexão com o servidor.')}}
+try{if(await rpc('admin_login',{p_pass:v})===true){ADM=v;closeM();openAdm()}else toast('Senha incorreta.')}catch(e){toast('Erro: '+String(e.message||e).slice(0,140))}}
 async function doSave(){
 if(ON){try{
 if(cfg.pass&&cfg.pass.length>=4&&cfg.pass!==ADM){if(await rpc('admin_set_pass',{p_pass:ADM,p_new:cfg.pass}))ADM=cfg.pass}
@@ -245,34 +245,45 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','-','=',
 function compress(f,max,q){return new Promise((ok,no)=>{const r=new FileReader();r.onerror=no;r.onload=()=>{const im=new Image();im.onerror=no;im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',q))};im.src=r.result};r.readAsDataURL(f)})}
 
 /* ===== AGENDAMENTO (wizard) ===== */
-let S={step:1,bid:null,date:'',time:'',name:'',note:''};
-const NM=['Barbeiro','Data','Horário','Dados','Confirmar'];
+let S={step:1,bid:null,svc:'',date:'',time:'',name:'',note:''};
+const NM={1:'Barbeiro',2:'Corte',3:'Data',4:'Horário',5:'Dados',6:'Confirmar'};
+/* ===== CORTES / SERVIÇOS (ficam em cfg.services) ===== */
+const activeSvcs=()=>(cfg.services||[]).filter(x=>x.active!==false);
+const svcById=id=>(cfg.services||[]).find(x=>x.id===id);
+const money=p=>{p=String(p??'').trim();return p===''?'':/^\d+([.,]\d{1,2})?$/.test(p)?'R$ '+p.replace('.',','):p};
+const svcLine=()=>{const v=svcById(S.svc);return v?v.name+(money(v.price)?' - '+money(v.price):''):''};
 function renderBook(){
-const st=`<div class="steps">${NM.map((n,i)=>`<div class="${S.step===i+1?'on':S.step>i+1?'ok':''}"><b>0${i+1}</b>${n}</div>`).join('')}</div>`;
+const hs=activeSvcs().length>0,ids=[1,2,3,4,5,6].filter(i=>i!==2||hs);
+const st=`<div class="steps">${ids.map((i,j)=>`<div class="${S.step===i?'on':S.step>i?'ok':''}"><b>0${j+1}</b>${NM[i]}</div>`).join('')}</div>`;
 const b=bById(S.bid);let h='';
 if(S.step>1&&(!b||!b.active)){S.step=1;S.bid=null;return renderBook()}
+if(S.step===2&&!hs)S.step=3;
+if(S.step>2&&hs&&!activeSvcs().some(x=>x.id===S.svc))S.step=2;
+const back=hs?2:1;
 if(S.step===1){const a=barbers.filter(x=>x.active);h=`<h3>Escolher barbeiro</h3><div class="grid">${a.map(x=>`<button class="glass card ${x.id===S.bid?'on':''}" data-act="pick" data-id="${x.id}" style="cursor:pointer;color:inherit">${avatar(x)}<b>${esc(x.name)}</b><p class="muted" style="font-size:.85rem">${esc(x.desc)}</p></button>`).join('')||'<p class="muted">Nenhum barbeiro disponível.</p>'}</div>`}
-else if(S.step===2){h=`<h3>Escolher data</h3><p class="muted">Dias de ${esc(b.name)}: ${b.days.map(d=>DN[d]).join(', ')||'nenhum'}</p><label for="dt">Data</label><input type="date" id="dt" min="${today()}" value="${S.date}"><div class="row"><button class="btn" data-act="go" data-s="1">Voltar</button><button class="btn pr" data-act="d2">Continuar</button></div>`}
-else if(S.step===3){const f=freeTimes(b,S.date);h=`<h3>Escolher horário</h3><p class="muted">${esc(b.name)} · ${fd(S.date)}</p>${f.length?`<div class="slots">${f.map(t=>`<button class="slot ${t===S.time?'on':''}" data-act="time" data-t="${t}">${t}</button>`).join('')}</div>`:'<p style="margin-top:12px">Este barbeiro não possui horários disponíveis nesta data.</p>'}<div class="row"><button class="btn" data-act="go" data-s="2">Voltar</button><button class="btn pr" data-act="t3">Continuar</button></div>`}
-else if(S.step===4){h=`<h3>Seus dados</h3><label for="nm">Seu nome</label><input id="nm" maxlength="60" autocomplete="name" value="${esc(S.name)}"><label for="ob">Observação (opcional)</label><textarea id="ob" maxlength="200">${esc(S.note)}</textarea><div class="row"><button class="btn" data-act="go" data-s="3">Voltar</button><button class="btn pr" data-act="n4">Continuar</button></div>`}
-else{h=`<h3>Confirmar</h3><div class="sum">${esc(waText())}</div><div class="row"><button class="btn" data-act="go" data-s="4">Voltar</button><button class="btn pr" data-act="fin">Agendar pelo WhatsApp</button></div>`}
+else if(S.step===2){h=`<h3>Escolher corte</h3><div class="grid">${activeSvcs().map(v=>`<button class="glass card ${v.id===S.svc?'on':''}" data-act="svc" data-id="${v.id}" style="cursor:pointer;color:inherit;text-align:left"><b>${esc(v.name)}</b><p style="font-size:1.1rem;margin:4px 0">${esc(money(v.price))}</p><p class="muted" style="font-size:.85rem">${esc(v.desc)}</p></button>`).join('')}</div><div class="row"><button class="btn" data-act="go" data-s="1">Voltar</button></div>`}
+else if(S.step===3){h=`<h3>Escolher data</h3><p class="muted">Dias de ${esc(b.name)}: ${b.days.map(d=>DN[d]).join(', ')||'nenhum'}</p><label for="dt">Data</label><input type="date" id="dt" min="${today()}" value="${S.date}"><div class="row"><button class="btn" data-act="go" data-s="${back}">Voltar</button><button class="btn pr" data-act="d2">Continuar</button></div>`}
+else if(S.step===4){const f=freeTimes(b,S.date);h=`<h3>Escolher horário</h3><p class="muted">${esc(b.name)} · ${fd(S.date)}</p>${f.length?`<div class="slots">${f.map(t=>`<button class="slot ${t===S.time?'on':''}" data-act="time" data-t="${t}">${t}</button>`).join('')}</div>`:'<p style="margin-top:12px">Este barbeiro não possui horários disponíveis nesta data.</p>'}<div class="row"><button class="btn" data-act="go" data-s="3">Voltar</button><button class="btn pr" data-act="t3">Continuar</button></div>`}
+else if(S.step===5){h=`<h3>Seus dados</h3><label for="nm">Seu nome</label><input id="nm" maxlength="60" autocomplete="name" value="${esc(S.name)}"><label for="ob">Observação (opcional)</label><textarea id="ob" maxlength="140">${esc(S.note)}</textarea><div class="row"><button class="btn" data-act="go" data-s="4">Voltar</button><button class="btn pr" data-act="n4">Continuar</button></div>`}
+else{h=`<h3>Confirmar</h3><div class="sum">${esc(waText())}</div><div class="row"><button class="btn" data-act="go" data-s="5">Voltar</button><button class="btn pr" data-act="fin">Agendar pelo WhatsApp</button></div>`}
 $('#bk').innerHTML=st+`<div class="step">${h}</div>`}
-function waText(){const b=bById(S.bid);return`Olá! Gostaria de agendar um horário.\n\nBarbeiro: ${b.name}\nData: ${fd(S.date)}\nHorário: ${S.time}\n\nNome: ${S.name}`+(S.note?`\nObservação: ${S.note}`:'')}
-function goStep(n){S.step=n;renderBook();$('#agendar').scrollIntoView();if(ON&&n===3)refreshBusy().then(()=>{if(S.step===3)renderBook()}).catch(()=>{})}
+function waText(){const b=bById(S.bid),sv=svcLine();return`Olá! Gostaria de agendar um horário.\n\nBarbeiro: ${b.name}\n`+(sv?`Corte: ${sv}\n`:'')+`Data: ${fd(S.date)}\nHorário: ${S.time}\n\nNome: ${S.name}`+(S.note?`\nObservação: ${S.note}`:'')}
+function goStep(n){S.step=n;renderBook();$('#agendar').scrollIntoView();if(ON&&n===4)refreshBusy().then(()=>{if(S.step===4)renderBook()}).catch(()=>{})}
 async function finish(){
 const b=bById(S.bid);if(!b)return toast('Selecione um barbeiro.');
 const url=waUrl(b.wa||cfg.wa,waText());if(!url)return toast('Este barbeiro ainda não tem WhatsApp configurado.');
+const sl=svcLine(),nt=(sl?'Corte: '+sl+(S.note?' | ':''):'')+S.note;
 const btn=$('[data-act=fin]');if(btn){if(btn.disabled)return;btn.disabled=true}
-const bad=()=>{S.time='';toast('Este horário acabou de ser reservado.');goStep(3)};
+const bad=()=>{S.time='';toast('Este horário acabou de ser reservado.');goStep(4)};
 try{
 if(ON){await refreshBusy();if(taken(b.id,S.date,S.time))return bad();
-if(!await rpc('book',{p_barber:b.id,p_barber_name:b.name,p_date:S.date,p_time:S.time,p_name:S.name,p_note:S.note})){await refreshBusy();return bad()}}
+if(!await rpc('book',{p_barber:b.id,p_barber_name:b.name,p_date:S.date,p_time:S.time,p_name:S.name,p_note:nt})){await refreshBusy();return bad()}}
 else{appts=ld(K.a,[]);/* revalida no storage (evita duplicidade) */
 if(taken(b.id,S.date,S.time))return bad();
-appts.push({id:uid(),bid:b.id,bname:b.name,date:S.date,time:S.time,name:S.name,note:S.note,created:new Date().toISOString()});
+appts.push({id:uid(),bid:b.id,bname:b.name,date:S.date,time:S.time,name:S.name,note:nt,created:new Date().toISOString()});
 if(!sv(K.a,appts)){if(btn)btn.disabled=false;return}}
 }catch(e){if(btn)btn.disabled=false;return toast('Não foi possível agendar. Verifique a conexão.')}
-const done=S.date;S={step:1,bid:null,date:'',time:'',name:'',note:''};renderBook();
+const done=S.date;S={step:1,bid:null,svc:'',date:'',time:'',name:'',note:''};renderBook();
 try{window.open(url,'_blank','noopener')}catch(e){}
 modal(`<h3>Horário reservado ✔</h3><p class="muted" style="margin:10px 0">Seu horário do dia ${fd(done)} foi registrado. Se o WhatsApp não abriu, toque no botão.</p><div class="row"><a class="btn pr" href="${esc(url)}" target="_blank" rel="noopener">Abrir WhatsApp</a><button class="btn" data-act="close">Fechar</button></div>`)}
 
@@ -281,11 +292,12 @@ let cfn=null;
 function modal(h){$('#mb').innerHTML=h;$('#ov').classList.add('show');const f=$('#mb input,#mb button');f&&f.focus()}
 function closeM(){$('#ov').classList.remove('show')}
 function confirmM(msg,fn){cfn=fn;modal(`<h3>Confirmação</h3><p class="muted" style="margin:10px 0 16px">${esc(msg)}</p><div class="row" style="margin:0"><button class="btn" data-act="close">Cancelar</button><button class="btn pr" data-act="yes">Confirmar</button></div>`)}
-function loginM(){modal(`<h3>Área administrativa</h3><label for="pw">Senha</label><input type="password" id="pw" autocomplete="off"><div class="row"><button class="btn" data-act="close">Cancelar</button><button class="btn pr" data-act="login">Entrar</button></div>`)}
+async function chkSrv(){const e=$('#lst');if(!e)return;if(!ON){e.textContent='Modo local (sem servidor).';return}e.textContent='Verificando servidor…';try{await rpc('admin_login',{p_pass:''});e.textContent='Servidor conectado ✔'}catch(x){e.textContent='Servidor com erro: '+String(x.message||x).slice(0,160)}}
+function loginM(){setTimeout(chkSrv,0);modal(`<h3>Área administrativa</h3><label for="pw">Senha</label><input type="password" id="pw" autocomplete="off"><p class="muted" id="lst" style="font-size:.8rem;margin-top:8px"></p><div class="row"><button class="btn" data-act="close">Cancelar</button><button class="btn pr" data-act="login">Entrar</button></div>`)}
 
 /* ===== PAINEL ADM ===== */
 let tab='Geral',fl={f:'all',b:'',d:'',q:''};
-const TABS=['Geral','Aparência','Textos','Barbeiros','Horários','Agendamentos','WhatsApp','Configurações'];
+const TABS=['Geral','Aparência','Textos','Barbeiros','Cortes','Horários','Agendamentos','WhatsApp','Configurações'];
 function inp(l,k,t='text'){let v=cfg[k];if(String(v).startsWith('data:'))v='';return`<label>${l}<${t==='area'?`textarea data-k="${k}">${esc(v)}</textarea>`:`input type="${t}" data-k="${k}" value="${esc(v)}">`}</label>`}
 function openAdm(){$('#adm').classList.add('show');renderAdm();if(ON)rpc('admin_list',{p_pass:ADM}).then(r=>{appts=r||[];renderAdm()}).catch(()=>toast('Erro ao carregar agendamentos.'))}
 function renderAdm(){
@@ -296,15 +308,21 @@ if(tab==='Geral')return dash()+`<div class="glass box"><h3>Geral</h3>${inp('Nome
 if(tab==='Aparência')return`<div class="glass box"><h3>Imagem do início</h3><label>Escolher imagem do dispositivo<input type="file" id="hf" accept="image/*"></label>${inp('ou URL da imagem','heroImg')}${cfg.heroImg?'<p class="muted">Imagem em uso ✔</p>':''}<div class="row"><button class="btn sm dg" data-act="hrm">Remover imagem</button></div></div><div class="glass box"><h3>Aparência</h3><div class="two"><label>Tema<select data-th="1"><option value="dark" ${cfg.theme==='dark'?'selected':''}>Escuro</option><option value="light" ${cfg.theme==='light'?'selected':''}>Claro</option></select></label><label>Fonte<select data-k="font">${Object.entries(FONTS).map(([n,v])=>`<option value="${esc(v)}" ${cfg.font===v?'selected':''}>${n}</option>`).join('')}</select></label></div><div class="two">${inp('Cor principal','primary','color')}${inp('Cor secundária','secondary','color')}${inp('Cor de destaque','accent','color')}${inp('Cor dos botões','btnc','color')}${inp('Cor dos textos','text','color')}</div><label>Opacidade dos painéis<input type="range" min="0.1" max="0.9" step="0.05" data-k="op" data-n="1" value="${cfg.op}"></label><label>Intensidade do vidro (blur)<input type="range" min="0" max="40" data-k="blur" data-n="1" value="${cfg.blur}"></label></div>`;
 if(tab==='Textos')return`<div class="glass box"><h3>Textos</h3>${inp('Título principal','title')}${inp('Subtítulo','sub')}${inp('Descrição','desc','area')}${inp('Texto dos botões','btn')}${inp('Texto da seção Sobre','about','area')}</div>`;
 if(tab==='Barbeiros')return`<div class="glass box"><div class="it" style="border:0"><h3>Barbeiros</h3><button class="btn pr sm" data-act="bedit" data-id="">+ Adicionar</button></div>${barbers.map(b=>`<div class="it"><div>${esc(b.name)} <span class="muted">${b.active?'· ativo':'· inativo'}</span></div><div class="row" style="margin:0"><button class="btn sm" data-act="bedit" data-id="${b.id}">Editar</button><button class="btn sm dg" data-act="bdel" data-id="${b.id}">Excluir</button></div></div>`).join('')||'<p class="muted">Nenhum barbeiro.</p>'}</div>`;
+if(tab==='Cortes')return`<div class="glass box"><div class="it" style="border:0"><h3>Cortes e serviços</h3><button class="btn pr sm" data-act="sedit" data-id="">+ Adicionar</button></div>${(cfg.services||[]).map(v=>`<div class="it"><div><b>${esc(v.name)}</b> <span class="muted">${esc(money(v.price))}${v.active===false?' · inativo':''}</span><br><span class="muted">${esc(v.desc)}</span></div><div class="row" style="margin:0"><button class="btn sm" data-act="sedit" data-id="${v.id}">Editar</button><button class="btn sm dg" data-act="sdel" data-id="${v.id}">Excluir</button></div></div>`).join('')||'<p class="muted">Nenhum corte cadastrado. Sem cortes, o cliente pula essa etapa.</p>'}</div>`;
 if(tab==='Horários')return`<div class="glass box"><h3>Horários por barbeiro</h3>${barbers.map(b=>`<div class="it"><div><b>${esc(b.name)}</b><br><span class="muted">${b.days.map(d=>DN[d].slice(0,3)).join(', ')||'sem dias'} · ${esc(b.times.join(' ')||'sem horários')}</span></div><button class="btn sm" data-act="bedit" data-id="${b.id}">Editar</button></div>`).join('')}</div>`;
 if(tab==='Agendamentos')return`<div class="glass box"><h3>Agendamentos</h3><div class="two"><label>Período<select id="ff"><option value="all">Todos</option><option value="today">Hoje</option><option value="tom">Amanhã</option><option value="next">Próximos</option></select></label><label>Barbeiro<select id="fb"><option value="">Todos</option>${barbers.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></label><label>Data<input type="date" id="fdt"></label><label>Buscar cliente<input id="fq" placeholder="Nome"></label></div><div id="al"></div></div>`;
 if(tab==='WhatsApp')return`<div class="glass box"><h3>WhatsApp</h3><p class="muted">O WhatsApp padrão abaixo é o da página Contato e serve de reserva para barbeiros sem número próprio.</p>${inp('WhatsApp padrão (ex.: 5511999999999)','wa')}<h4 style="margin-top:16px">Números dos barbeiros</h4>${barbers.map(b=>`<div class="it"><span>${esc(b.name)}</span><span class="muted">${esc(b.wa||'usa o padrão')}</span></div>`).join('')}</div>`;
-return`<div class="glass box"><h3>Segurança</h3><label>Nova senha (mín. 4 caracteres)<input type="text" data-k="pass" value="" placeholder="Deixe vazio para manter" autocomplete="off"></label></div><div class="glass box"><h3>Dados</h3><div class="row" style="margin:0"><button class="btn" data-act="exp">Exportar dados</button><button class="btn" data-act="imp">Importar dados</button><button class="btn dg" data-act="rst">Restaurar configurações padrão</button></div><input type="file" id="fi" accept="application/json" hidden></div>`}
+return`<div class="glass box"><h3>Segurança</h3><label>Nova senha (mín. 4 caracteres)<input type="text" data-k="pass" value="" placeholder="Deixe vazio para manter" autocomplete="new-password" name="npw"></label></div><div class="glass box"><h3>Dados</h3><div class="row" style="margin:0"><button class="btn" data-act="exp">Exportar dados</button><button class="btn" data-act="imp">Importar dados</button><button class="btn dg" data-act="rst">Restaurar configurações padrão</button></div><input type="file" id="fi" accept="application/json" hidden></div>`}
 function renderAL(){
 const t=today(),tm=addD(1);let l=appts.filter(a=>{
 if(fl.f==='today'&&a.date!==t)return 0;if(fl.f==='tom'&&a.date!==tm)return 0;if(fl.f==='next'&&a.date<t)return 0;
 if(fl.b&&a.bid!==fl.b)return 0;if(fl.d&&a.date!==fl.d)return 0;if(fl.q&&!a.name.toLowerCase().includes(fl.q.toLowerCase()))return 0;return 1}).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 $('#al').innerHTML=l.map(a=>{const b=bById(a.bid);return`<div class="it"><div><b>${esc(a.name)}</b><br>${esc(b?b.name:a.bname)} · ${fd(a.date)} · ${a.time}<br><span class="muted">${esc(a.note||'Sem observação')} · criado em ${new Date(a.created).toLocaleString('pt-BR')}</span></div><button class="btn sm dg" data-act="adel" data-id="${a.id}">Cancelar</button></div>`}).join('')||'<p class="muted" style="margin-top:12px">Nenhum agendamento encontrado.</p>'}
+function svcForm(id){const v=(cfg.services||[]).find(x=>x.id===id)||{name:'',price:'',desc:'',active:true};
+modal(`<h3>${id?'Editar':'Novo'} corte</h3><label for="sn">Nome</label><input id="sn" value="${esc(v.name)}" placeholder="Corte + Barba"><label for="sp">Preço</label><input id="sp" value="${esc(v.price)}" placeholder="50" inputmode="decimal"><label for="sd">Descrição</label><textarea id="sd">${esc(v.desc)}</textarea><label class="chk" style="margin-top:14px"><input type="checkbox" id="sa" ${v.active!==false?'checked':''}> Ativo</label><div class="row"><button class="btn" data-act="close">Cancelar</button><button class="btn pr" data-act="ssave" data-id="${id}">Salvar</button></div>`)}
+function saveSvc(id){const n=$('#sn').value.trim();if(!n)return toast('Informe o nome do corte.');
+const o={id:id||uid(),name:n,price:$('#sp').value.trim(),desc:$('#sd').value.trim(),active:$('#sa').checked};
+const l=[...(cfg.services||[])],i=l.findIndex(x=>x.id===id);i>=0?l[i]=o:l.push(o);cfg.services=l;mark();closeM();renderPublic();renderAdm();toast('Corte atualizado. Clique em Salvar alterações.')}
 function barberForm(id){const b=bById(id)||{id:'',name:'',photo:'',desc:'',wa:'',days:[1,2,3,4,5,6],times:[...T],active:true};
 modal(`<h3>${id?'Editar':'Novo'} barbeiro</h3><label for="bn">Nome</label><input id="bn" value="${esc(b.name)}"><label for="bd">Descrição</label><textarea id="bd">${esc(b.desc)}</textarea><label for="bw">WhatsApp do barbeiro</label><input id="bw" placeholder="5511999999999 ou link" value="${esc(b.wa)}"><label for="bp">Foto (URL)</label><input id="bp" value="${b.photo.startsWith('data:')?'':esc(b.photo)}"><label for="bf">ou escolher imagem</label><input type="file" id="bf" accept="image/*"><label>Dias de trabalho</label><div class="chk">${DN.map((n,i)=>`<label><input type="checkbox" class="dy" value="${i}" ${b.days.includes(i)?'checked':''}>${n.slice(0,3)}</label>`).join('')}</div><label for="bt">Horários (separados por vírgula)</label><input id="bt" value="${esc(b.times.join(', '))}"><label class="chk" style="margin-top:14px"><input type="checkbox" id="ba" ${b.active?'checked':''}> Barbeiro ativo</label><div class="row"><button class="btn" data-act="close">Cancelar</button><button class="btn pr" data-act="bsave" data-id="${id}" data-keep="${b.photo.startsWith('data:')?esc(b.photo):''}">Salvar</button></div>`)}
 function saveBarber(id,keep,photo){
@@ -323,13 +341,14 @@ if(e.target.id==='ov')return closeM();
 if(e.target.closest('#nav a')||e.target.closest('header .btn'))$('#nav').classList.remove('open');
 if(!x)return;const a=x.dataset.act,id=x.dataset.id;
 switch(a){
-case'pick':S={step:2,bid:id,date:'',time:'',name:S.name,note:S.note};renderBook();$('#agendar').scrollIntoView();break;
+case'pick':S={step:activeSvcs().length?2:3,bid:id,svc:'',date:'',time:'',name:S.name,note:S.note};renderBook();$('#agendar').scrollIntoView();break;
+case'svc':S.svc=id;goStep(3);break;
 case'go':goStep(+x.dataset.s);break;
 case'd2':{const d=$('#dt').value,b=bById(S.bid);if(!validD(d))return toast('Escolha uma data.');if(d<today())return toast('Não é possível agendar em datas passadas.');
-if(!b.days.includes(dow(d)))return toast(b.name+' não atende neste dia da semana.');S.date=d;S.time='';goStep(3);break}
+if(!b.days.includes(dow(d)))return toast(b.name+' não atende neste dia da semana.');S.date=d;S.time='';goStep(4);break}
 case'time':S.time=x.dataset.t;document.querySelectorAll('.slot').forEach(s=>s.classList.toggle('on',s===x));break;
-case't3':if(!S.time)return toast('Escolha um horário.');if(taken(S.bid,S.date,S.time)){S.time='';toast('Este horário acabou de ser reservado.');return goStep(3)}goStep(4);break;
-case'n4':S.name=$('#nm').value.trim();S.note=$('#ob').value.trim();if(!S.name)return toast('Informe seu nome.');goStep(5);break;
+case't3':if(!S.time)return toast('Escolha um horário.');if(taken(S.bid,S.date,S.time)){S.time='';toast('Este horário acabou de ser reservado.');return goStep(4)}goStep(5);break;
+case'n4':S.name=$('#nm').value.trim();S.note=$('#ob').value.trim();if(!S.name)return toast('Informe seu nome.');goStep(6);break;
 case'fin':finish();break;
 case'close':closeM();break;
 case'yes':{const f=cfn;cfn=null;closeM();f&&f()}break;
@@ -338,6 +357,9 @@ case'exit':if(dirty)confirmM('Há alterações não salvas. Sair e descartar?',(
 case'save':doSave();break;
 case'pubf':pubFile();break;
 case'tab':tab=x.dataset.t;renderAdm();break;
+case'sedit':svcForm(id);break;
+case'sdel':confirmM('Excluir este corte?',()=>{cfg.services=(cfg.services||[]).filter(v=>v.id!==id);mark();renderPublic();renderAdm()});break;
+case'ssave':saveSvc(id);break;
 case'bedit':barberForm(id);break;
 case'bdel':confirmM('Excluir este barbeiro? Os agendamentos dele serão mantidos no histórico.',()=>{barbers=barbers.filter(b=>b.id!==id);mark();renderPublic();renderAdm()});break;
 case'bsave':{const f=$('#bf').files[0];if(f)compress(f,500,.85).then(d=>saveBarber(id,x.dataset.keep,d)).catch(()=>toast('Não foi possível ler a imagem.'));else saveBarber(id,x.dataset.keep)}break;
